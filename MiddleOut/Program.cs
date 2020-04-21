@@ -21,9 +21,9 @@ namespace MiddleOut
             {
                     Console.WriteLine("Something wrong with aruguments :(");
                     Console.WriteLine("To use, add in the files to compress (any amount) and the final flag is the zip file name. For some examples:\n");
-                    Console.WriteLine("MiddleOut.exe test.txt this.txt file.exe zipArchive.zip");
-                    Console.WriteLine("MiddleOut.exe * zipArchive.zip");
-                    Console.WriteLine("MiddleOut.exe someDirectory\test.txt someOtherDirectory\\* zipArchive.zip");
+                    Console.WriteLine(" > MiddleOut.exe test.txt this.txt file.exe zipArchive.zip");
+                    Console.WriteLine(" > MiddleOut.exe * zipArchive.zip");
+                    Console.WriteLine(" > MiddleOut.exe someDirectory\\test.txt someOtherDirectory\\* zipArchive.zip");
                     return;
             }
 
@@ -49,7 +49,7 @@ namespace MiddleOut
                 Console.WriteLine("To use, add in the files to compress (any amount) and the final flag is the zip file name. For some examples:\n");
                 Console.WriteLine("MiddleOut.exe test.txt this.txt file.exe zipArchive.zip");
                 Console.WriteLine("MiddleOut.exe * zipArchive.zip");
-                Console.WriteLine("MiddleOut.exe someDirectory\test.txt someOtherDirectory\\* zipArchive.zip");
+                Console.WriteLine("MiddleOut.exe someDirectory\\test.txt someOtherDirectory\\* zipArchive.zip");
                 return;
             }
 
@@ -110,7 +110,6 @@ namespace MiddleOut
                     else if (item.Contains("*"))
                     // If all items in a given directory or current directory are to be zipped, need to account for the local zip file creation
                     {
-
                         if (Equals(item, "*"))
                         // If all files in current dir are to be zipped
                         {
@@ -128,8 +127,8 @@ namespace MiddleOut
                                 }
                             }
                         }
-
                     }
+                    
                     else
                     // If single files are to be zipped
                     {
@@ -166,7 +165,7 @@ namespace MiddleOut
                         }
                     }
                 }
+            Console.WriteLine("\n[+] Finished compression, exiting application...");
         }
-
     }
 }
