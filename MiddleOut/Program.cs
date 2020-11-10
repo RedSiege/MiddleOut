@@ -1,7 +1,12 @@
 ﻿using Ionic.Zip;
 using System;
 using System.Collections.Generic;
+using System.Security;
+using CommandLine;
+using CommandLine.Text;
+using System.Threading;
 using System.IO;
+using System.Text;
 using System.Linq;
 
 namespace MiddleOut
@@ -11,10 +16,48 @@ namespace MiddleOut
     class Program
     {
         public static string ZipFileName;
-        public static string Pass;
-        public static List<string> ArgList = new List<string>();
 
         public enum PathType { NonExisting = 0, File = 1, Directory = 2 };
+
+
+        public class Options
+        {
+            public static Options Instance { get; set; }
+
+            // Command line options
+            [Option('v', "verbose", Required = false, HelpText = "Set output to verbose")]
+            public bool Verbose { get; set; }
+
+            [Option('f', "file", Group = "Input", Required = true, HelpText = "Specify a text file containing files to compress (one per line)")]
+            public string File { get; set; }
+
+            [Option('i', "input", Group = "Input", Required = true, HelpText = "Specify multiple files to compress (separated by commas)")]
+            public string Input { get; set; }
+
+            [Option('o', "output", Required = false, HelpText = "Specify a zip file to output to", Default = null)]
+            public string Output { get; set; }
+
+            [Option('p', "password", Required = false, HelpText = "Specify a password to encrypt the zip file", Default = null)]
+            public string Password { get; set; }
+        }
+
+        static void DisplayHelp<T>(ParserResult<T> result, IEnumerable<Error> errs)
+        {
+            var helpText = HelpText.AutoBuild(result, h =>
+            {
+                h.AdditionalNewLineAfterOption = false;
+                h.Heading = "MiddleOut v 1.1"; //change header
+                h.Copyright = ""; //change copyright text
+                h.AutoVersion = false;
+                return HelpText.DefaultParsingErrorsHandler(result, h);
+            }, e => e);
+            Console.WriteLine(helpText);
+            System.Environment.Exit(1);
+        }
+
+
+
+
         public static PathType GetPathType(string path)
         {
             if (File.Exists(path))
@@ -24,87 +67,10 @@ namespace MiddleOut
             return PathType.NonExisting;
         }
 
-        static void ParseArgs(string[] arguments)
-        {
-            // Takes in x params with the second to last arg being the zip file and the last being 
-            // an optional password
+       
 
-            try
-            {
-                Pass = arguments[arguments.Length - 1];
-
-                if (GetPathType(Pass) == PathType.NonExisting)
-                {
-                    ZipFileName = arguments[arguments.Length - 2];
-                    if (ZipFileName.EndsWith("\\") || ZipFileName.EndsWith("\\*"))
-                    {
-                        string sanitizedPath = ZipFileName.TrimEnd(ZipFileName[ZipFileName.Length - 1]);
-                        ZipFileName = sanitizedPath;
-                    }
-                    if (GetPathType(ZipFileName) == PathType.NonExisting)
-                    {
-                        if (ZipFileName.EndsWith(".zip"))
-                        {
-                            //do nothing, it's a good filename
-                        }
-                        else
-                        {
-                            ZipFileName = ZipFileName + ".zip";
-                        }
-                    }
-                    //else if (GetPathType(ZipFileName) == PathType.File)
-                    //{
-                    //    Console.WriteLine("\n[-] ERROR: Zip file already exists!\n[-] ERROR: Exiting...");
-                    //    System.Environment.Exit(1);
-                    //}
-                    else
-                    {
-                        ZipFileName = arguments[arguments.Length - 1];
-                        Pass = null;
-                        if (ZipFileName.EndsWith(".zip"))
-                        {
-                            //do nothing, it's a good filename
-                        }
-                        else
-                        {
-                            ZipFileName = ZipFileName + ".zip";
-                        }
-                    }
-                }
-
-                if ((GetPathType(Pass)) == PathType.File || (GetPathType(Pass)) == PathType.Directory)
-                {
-                    Console.WriteLine("\n[-] ERROR: Zip file already exists or you didn't specify a zip file!\n[-] ERROR: Exiting...");
-                    System.Environment.Exit(1);
-                }
-                else
-                {
-                    //System.Environment.Exit(1);
-                }
-
-                List<string> list = new List<string>(arguments);
-                if (Pass != null)
-                {
-                    Console.WriteLine("\n[+] Continuing with password\n");
-                    list.RemoveAt(list.Count - 1);
-                    list.RemoveAt(list.Count - 1);
-                }
-                else
-                {
-                    Console.WriteLine("\n[+] Continuing without password\n");
-                    list.RemoveAt(list.Count - 1);
-                }
-                ArgList = list;
-            }
-
-            catch (Exception e)
-            {
-                Console.WriteLine("\n[-] Something bad happened with the arguments passed");
-                Console.WriteLine("Please see the exception below: \n\n");
-                Console.WriteLine(e);
-                return;
-            }
-        }
+     
+        
 
         public static void Zipper(string[] zipList, string password, string location)
         {
@@ -138,20 +104,72 @@ namespace MiddleOut
             List<string> wildcardList = new List<string>();
             string currentDirectory = Directory.GetCurrentDirectory();
 
-            if (args.Length < 2)
+            // Parse arguments passed
+            var parser = new Parser(with =>
             {
-                Console.WriteLine("\n[-] You didn't provide enough arguments");
-                Console.WriteLine("\nTo use, add in the files to compress (any amount), the second to last flag is the zip file name and the final flag is the password (optional). For some examples:\n");
-                Console.WriteLine(" > MiddleOut.exe test.txt this.txt file.exe zipArchive.zip");
-                Console.WriteLine(" > MiddleOut.exe * zipArchive.zip");
-                Console.WriteLine(" > MiddleOut.exe someDirectory\\test.txt someOtherDirectory\\* zipArchive.zip");
-                return;
+                with.CaseInsensitiveEnumValues = true;
+                with.CaseSensitive = false;
+                with.HelpWriter = null;
+            });
+
+            var parserResult = parser.ParseArguments<Options>(args);
+            parserResult.WithParsed<Options>(o =>
+            {
+                Options.Instance = o;
+            })
+                .WithNotParsed(errs => DisplayHelp(parserResult, errs));
+            var options = Options.Instance;
+            Console.WriteLine();
+
+            ZipFileName = options.Output;
+
+            //If file was passed, add values to compresslist
+            if (!String.IsNullOrEmpty(options.File) && File.Exists(options.File))
+            {
+                try
+                {
+                    using (StreamReader rdr = new StreamReader(options.File))
+                    {
+                        string line;
+                        while ((line = rdr.ReadLine()) != null)
+                        {
+                            CompressList.Add(line);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Unable to parse file, try only having one file per line\nFull error:");
+                    Console.WriteLine(e);
+                }
             }
 
-            // Parse the arguments and go from there
-            ParseArgs(args);
+            //If a list of URLs was passed
+            else if (!String.IsNullOrEmpty(options.Input))
+            {
+                if (options.Input.Contains(','))
+                {
+                    try
+                    {
+                        CompressList = options.Input.Split(',').ToList();
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Unable to parse list of files, try removing whitespace before/after path\nFull error:");
+                        Console.WriteLine(e);
+                    }
+                }
+                else
+                {
+                    CompressList.Add(options.Input);
+                }
+            }
 
-            foreach (string item in ArgList)
+            List<string> CompressListTemp = CompressList.ToList();
+
+
+            //Go through each item passed
+            foreach (string item in CompressListTemp)
             {
                 if (item.EndsWith("\\") || item.EndsWith("\\*"))
                 {
@@ -162,7 +180,7 @@ namespace MiddleOut
                         {
                             try
                             {
-                                wildcardList.Add(a);
+                                wildcardList.Add(Path.GetFullPath(a));
                             }
                             catch (System.UnauthorizedAccessException)
                             {
@@ -265,15 +283,29 @@ namespace MiddleOut
                 }
             }
 
+            if (String.IsNullOrEmpty(ZipFileName))
+            {
+                ZipFileName = "MiddleOut__" + DateTime.Now.ToString("M-dd-yyyy_HH-mm-ss") + ".zip";
+            }
+
             //Do one final check (supports: MiddleOut.exe testfile test test) being executed twice in a row
-            if (GetPathType(ZipFileName) == PathType.File)
+            if (File.Exists(ZipFileName))
             {
                 Console.WriteLine("\n[-] ERROR: Zip file already exists!\n[-] ERROR: Exiting...");
                 System.Environment.Exit(1);
             }
             string[] compressArray;
+            if (wildcardList.Count() > 0)
+            {
+                foreach (string item in wildcardList)
+                    CompressList.Add(item);
+            }
             compressArray = CompressList.Distinct().ToArray();
-            Zipper(compressArray, Pass, Path.GetFullPath(ZipFileName));
+
+            //foreach(string item in compressArray)
+                //Console.WriteLine(item);
+
+            Zipper(compressArray, options.Password, Path.GetFullPath(ZipFileName));
 
             Console.WriteLine("[+] Finished compression, save location: \n" + Path.GetFullPath(ZipFileName));
         }
