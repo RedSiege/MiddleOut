@@ -1,12 +1,9 @@
 ﻿using Ionic.Zip;
 using System;
 using System.Collections.Generic;
-using System.Security;
 using CommandLine;
 using CommandLine.Text;
-using System.Threading;
 using System.IO;
-using System.Text;
 using System.Linq;
 
 namespace MiddleOut
@@ -18,7 +15,6 @@ namespace MiddleOut
         public static string ZipFileName;
 
         public enum PathType { NonExisting = 0, File = 1, Directory = 2 };
-
 
         public class Options
         {
@@ -55,9 +51,6 @@ namespace MiddleOut
             System.Environment.Exit(1);
         }
 
-
-
-
         public static PathType GetPathType(string path)
         {
             if (File.Exists(path))
@@ -66,11 +59,6 @@ namespace MiddleOut
                 return PathType.Directory;
             return PathType.NonExisting;
         }
-
-       
-
-     
-        
 
         public static void Zipper(string[] zipList, string password, string location)
         {
