@@ -295,7 +295,10 @@ namespace MiddleOut
                 foreach (string item in wildcardList)
                     CompressList.Add(item);
             }
+            
             compressArray = CompressList.Distinct().ToArray();
+
+            Console.WriteLine("[+] Working...");
 
             if (options.SplitSize > 0)
                 Zipper(compressArray, options.Password, Path.GetFullPath(ZipFileName), options.SplitSize);
