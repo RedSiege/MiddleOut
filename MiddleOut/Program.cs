@@ -35,6 +35,9 @@ namespace MiddleOut
 
             [Option('p', "password", Required = false, HelpText = "Specify a password to encrypt the zip file", Default = null)]
             public string Password { get; set; }
+
+            [Option('s', "split", Required = false, Default = 0, HelpText = "Specify file size to split on.  If the size exceeds this a separate file will be created.")]
+            public int SplitSize { get; set; }
         }
 
         static void DisplayHelp<T>(ParserResult<T> result, IEnumerable<Error> errs)
@@ -60,22 +63,26 @@ namespace MiddleOut
             return PathType.NonExisting;
         }
 
-        public static void Zipper(string[] zipList, string password, string location)
+        public static void Zipper(string[] zipList, string password, string location, int? splitSize = null)
         {
             using (ZipFile zip = new ZipFile())
             {
                 zip.Password = password;
+
+                if (splitSize.HasValue)
+                    zip.MaxOutputSegmentSize = splitSize.Value;
+
                 foreach (var filename in zipList)
                 {
                     try
                     {
                         zip.AddFile(filename);
                     }
-                    catch (System.UnauthorizedAccessException)
+                    catch (UnauthorizedAccessException)
                     {
                         //pass
                     }
-                    catch (System.ArgumentException)
+                    catch (ArgumentException)
                     {
                         //pass
                     }  
@@ -101,7 +108,7 @@ namespace MiddleOut
             });
 
             var parserResult = parser.ParseArguments<Options>(args);
-            parserResult.WithParsed<Options>(o =>
+            parserResult.WithParsed(o =>
             {
                 Options.Instance = o;
             })
@@ -170,11 +177,11 @@ namespace MiddleOut
                             {
                                 wildcardList.Add(Path.GetFullPath(a));
                             }
-                            catch (System.UnauthorizedAccessException)
+                            catch (UnauthorizedAccessException)
                             {
                                 //pass
                             }
-                            catch (System.ArgumentException)
+                            catch (ArgumentException)
                             {
                                 //pass
                             }
@@ -207,7 +214,7 @@ namespace MiddleOut
                             wildcardList.Add(a);
                         }
                     }
-                    catch (System.UnauthorizedAccessException)
+                    catch (UnauthorizedAccessException)
                     {
                         //pass
                     }
@@ -237,7 +244,7 @@ namespace MiddleOut
                                 wildcardList.Add(a);
                             }
                         }
-                        catch (System.UnauthorizedAccessException)
+                        catch (UnauthorizedAccessException)
                         {
                             //pass
                         }
@@ -280,7 +287,7 @@ namespace MiddleOut
             if (File.Exists(ZipFileName))
             {
                 Console.WriteLine("\n[-] ERROR: Zip file already exists!\n[-] ERROR: Exiting...");
-                System.Environment.Exit(1);
+                Environment.Exit(1);
             }
             string[] compressArray;
             if (wildcardList.Count() > 0)
@@ -288,12 +295,15 @@ namespace MiddleOut
                 foreach (string item in wildcardList)
                     CompressList.Add(item);
             }
+            
             compressArray = CompressList.Distinct().ToArray();
 
-            //foreach(string item in compressArray)
-                //Console.WriteLine(item);
+            Console.WriteLine("[+] Working...");
 
-            Zipper(compressArray, options.Password, Path.GetFullPath(ZipFileName));
+            if (options.SplitSize > 0)
+                Zipper(compressArray, options.Password, Path.GetFullPath(ZipFileName), options.SplitSize);
+            else
+                Zipper(compressArray, options.Password, Path.GetFullPath(ZipFileName));
 
             Console.WriteLine("[+] Finished compression, save location: \n" + Path.GetFullPath(ZipFileName));
         }
